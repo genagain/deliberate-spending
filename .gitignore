@@ -3,3 +3,6 @@ venv/
 
 # Python Egg
 *.egg-info/
+
+# Vim
+*.swp

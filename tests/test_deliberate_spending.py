@@ -7,6 +7,7 @@ def client():
     with app.test_client() as client:
         yield client
 
+# TODO make all of the testing API response based
 def test_index(client):
     response = client.get('/')
     assert response.status_code == 200
