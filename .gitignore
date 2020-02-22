@@ -1,0 +1,11 @@
+# Virtual Environment
+venv/
+
+# Python
+*.pyc
+
+# Python Egg
+*.egg-info/
+
+# Vim
+*.swp
