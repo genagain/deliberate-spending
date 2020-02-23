@@ -58,18 +58,6 @@ def index():
     plaid_oauth_nonce=PLAID_OAUTH_NONCE,
   )
 
-# This is an endpoint defined for the OAuth flow to redirect to.
-@app.route('/oauth-response.html')
-def oauth_response():
-  return render_template(
-    'oauth-response.ejs',
-    plaid_public_key=PLAID_PUBLIC_KEY,
-    plaid_environment=PLAID_ENV,
-    plaid_products=PLAID_PRODUCTS,
-    plaid_country_codes=PLAID_COUNTRY_CODES,
-    plaid_oauth_nonce=PLAID_OAUTH_NONCE,
-  )
-
 # We store the access_token in memory - in production, store it in a secure
 # persistent data store.
 access_token = None
