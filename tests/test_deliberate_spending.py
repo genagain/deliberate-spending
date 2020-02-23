@@ -1,3 +1,5 @@
+import json
+import os
 import pytest
 
 from deliberate_spending import app
@@ -11,4 +13,10 @@ def client():
 def test_index(client):
     response = client.get('/')
     assert response.status_code == 200
-    assert b"Click the button below to open a list of Institutions. After you select one, you'll be guided through an authentication process." in response.data
+
+def test_get_access_token(client, monkeypatch):
+    public_token = os.getenv('PUBLIC_TOKEN')
+    data = { "public_token": public_token }
+    response = client.post('/get_access_token', data=data)
+    assert response.status_code == 200
+
