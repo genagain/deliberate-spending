@@ -1,5 +1,11 @@
+import datetime
+import json
 import os
+from flask import jsonify
 from flask import render_template
+from flask import request
+
+import plaid
 
 from deliberate_spending import app
 
@@ -34,6 +40,12 @@ PLAID_OAUTH_REDIRECT_URI = os.getenv('PLAID_OAUTH_REDIRECT_URI', '');
 # redirect. The nonce must be at least 16 characters long.
 PLAID_OAUTH_NONCE = os.getenv('PLAID_OAUTH_NONCE', '');
 
+client = plaid.Client(client_id = PLAID_CLIENT_ID,
+                      secret = PLAID_SECRET,
+                      public_key=PLAID_PUBLIC_KEY,
+                      environment=PLAID_ENV,
+                      api_version='2019-05-29')
+
 @app.route('/')
 def index():
   return render_template(
@@ -45,3 +57,62 @@ def index():
     plaid_oauth_redirect_uri=PLAID_OAUTH_REDIRECT_URI,
     plaid_oauth_nonce=PLAID_OAUTH_NONCE,
   )
+
+# We store the access_token in memory - in production, store it in a secure
+# persistent data store.
+access_token = None
+# The payment_token is only relevant for the UK Payment Initiation product.
+# We store the payment_token in memory - in production, store it in a secure
+# persistent data store.
+payment_token = None
+payment_id = None
+
+# Exchange token flow - exchange a Link public_token for
+# an API access_token
+# https://plaid.com/docs/#exchange-token-flow
+@app.route('/get_access_token', methods=['POST'])
+def get_access_token():
+  global access_token
+  public_token = request.form['public_token']
+  try:
+    exchange_response = client.Item.public_token.exchange(public_token)
+  except plaid.errors.PlaidError as e:
+    return jsonify(format_error(e))
+
+  pretty_print_response(exchange_response)
+  access_token = exchange_response['access_token']
+  return jsonify(exchange_response)
+
+# Retrieve ACH or ETF account numbers for an Item
+# https://plaid.com/docs/#auth
+@app.route('/auth', methods=['GET'])
+def get_auth():
+  try:
+    auth_response = client.Auth.get(access_token)
+  except plaid.errors.PlaidError as e:
+    return jsonify({'error': {'display_message': e.display_message, 'error_code': e.code, 'error_type': e.type } })
+  pretty_print_response(auth_response)
+  return jsonify({'error': None, 'auth': auth_response})
+
+# Retrieve Transactions for an Item
+# https://plaid.com/docs/#transactions
+@app.route('/transactions', methods=['GET'])
+def get_transactions():
+  # Pull transactions for the last 30 days
+  start_date = '{:%Y-%m-%d}'.format(datetime.datetime.now() + datetime.timedelta(-30))
+  end_date = '{:%Y-%m-%d}'.format(datetime.datetime.now())
+  try:
+    transactions_response = client.Transactions.get(access_token, start_date, end_date)
+  except plaid.errors.PlaidError as e:
+    return jsonify(format_error(e))
+  pretty_print_response(transactions_response)
+  return jsonify({'error': None, 'transactions': transactions_response})
+
+def pretty_print_response(response):
+  print(json.dumps(response, indent=2, sort_keys=True))
+
+def format_error(e):
+  return {'error': {'display_message': e.display_message, 'error_code': e.code, 'error_type': e.type, 'error_message': e.message } }
+
+if __name__ == '__main__':
+  app.run(port=os.getenv('PORT', 5000))
